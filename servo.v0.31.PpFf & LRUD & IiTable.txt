@@ -1,0 +1,244 @@
+#include <Servo.h> 
+Servo myservo;  
+Servo myservo2;  
+#define DELAY_2CMD 500
+
+int I90[90*2] =
+{
+113,148,108,149,105,151,96,152,91,153,84,153,79,153,72,153,66,153,56,153,
+113,145,108,146,105,148,96,149,91,150,84,150,79,150,72,150,66,150,56,150,
+113,142,108,143,105,145,96,146,91,147,84,147,79,147,72,147,66,147,56,147,
+113,139,108,140,105,142,96,143,91,144,84,144,79,144,72,144,65,144,55,144,
+113,135,108,136,105,137,96,138,91,139,84,139,79,139,72,139,65,139,55,139,
+113,131,108,132,105,133,96,134,91,135,84,135,79,135,72,135,65,135,55,135,
+113,126,108,127,105,128,96,129,91,129,84,129,78,130,71,130,64,130,54,130,
+113,121,108,122,105,123,96,124,91,124,84,124,78,125,71,125,64,125,54,125,
+113,115,108,116,105,117,96,118,91,118,84,118,78,119,71,119,64,119,54,119,
+};
+
+int curX = 90, 
+    curY = 90;
+void servoxy( int p = 90, int p2 = 90, int d = 15 )
+{
+    myservo.write(p);               
+    myservo2.write(p2);               
+    delay(d); 
+    curX = p;
+    curY = p2;                      
+}
+
+void setup() 
+{ 
+  myservo.attach(8);  
+  myservo2.attach(9);  
+  servoxy(); // init to 90&90
+  
+  // Open serial communications and wait for port to open:
+  Serial.begin(9600); //115200);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+  Serial.println("ServXY.");
+}
+
+int s2i( char* s, int* r )
+{
+  if ( s == NULL ||
+       r == NULL ) return 0;
+  int l = 0;
+  *r=0;
+  while ( s[l] >= '0' && s[l] <= '9' )
+  {
+    *r = (*r)*10 + ( s[l] - '0' );
+    l++;
+  }
+  if ( s[l] == '-' )
+  {
+    *r = -(*r);
+    l++;
+  }
+  return l;
+}
+
+int getxy( char *cmd, int *x, int *y, bool f=0 )
+{
+  int l, l2;
+  if ( cmd == NULL ||
+       x == NULL ) return 0;
+  l = s2i( cmd, x );
+//  Serial.println( l );
+//  Serial.println( cmd );
+//  Serial.println( *x );
+  if ( y == NULL && f == 1 && cmd[l] == 0 )
+    return l; 
+  if ( l >= 1 && cmd[l] == ',' )
+  {
+    l2 = s2i( cmd+l+1, y );
+//    Serial.println( l2 );
+//    Serial.println( cmd+l+1 );
+//    Serial.println( *y );
+    if ( l2 >= 1 )
+    {
+      if ( f == 1 || (
+         ( *x >= 0 && *x <= 180 &&
+           *y >= 0 && *y <= 180 ) ) )
+        return l + l2 + 1;
+  } }
+  return 0;
+}
+
+int getp( char *cmd, int *p )
+{
+  return getxy( cmd, p, NULL, 1 );
+}
+
+void command( char* cmd )
+{
+  int l, x, y;
+//  Serial.println( cmd );
+  switch( cmd[0] )
+  {
+    case 'P': // servo angle.
+      l = getxy( cmd+1, &x, &y );
+      if ( l >= 1+1+1 )
+      {
+loc_P:
+//        Serial.print( "l" );
+//        Serial.print( l );
+//        Serial.print( ",x" );
+        Serial.print( "(" );
+        Serial.print( x );
+        Serial.print( "," );
+//        Serial.print( "y" );
+        Serial.print( y );
+        Serial.println( ")" );
+        // do servoxy
+        servoxy( x, y );
+      }
+      break;
+    case 'p': // chess board 90 position.
+      break;
+    case 'F': // servo angle offset.
+      l = getxy( cmd+1, &x, &y, 1 );
+      if ( l >= 1+1+1 )
+      {
+        x += curX;
+        y += curY;
+        if ( x >=0 && x <= 180 &&
+             y >=0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'L': // servo angle + offset.
+      l = getp( cmd+1, &x );
+//      Serial.print( "l" );
+//      Serial.print( l );
+//      Serial.print( ",x" );
+//      Serial.print( x );
+      if ( l >= 1 )
+      {
+        x = curX + x;
+        y = curY;
+        if ( x >=0 && x <= 180 &&
+             y >=0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'R': // servo angle - offset.
+      l = getp( cmd+1, &x );
+      if ( l >= 1 )
+      {
+        x = curX - x;
+        y = curY;
+        if ( x >=0 && x <= 180 &&
+             y >=0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'U': // servo2 angle + offset.
+      l = getp( cmd+1, &y );
+      if ( l >= 1 )
+      {
+        x = curX;
+        y = curY + y;
+        if ( x >=0 && x <= 180 &&
+             y >=0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'D': // servo2 angle - offset.
+      l = getp( cmd+1, &y );
+      if ( l >= 1 )
+      {
+        x = curX;
+        y = curY - y;
+        if ( x >=0 && x <= 180 &&
+             y >=0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'I': // index array 90.
+loc_I:
+      l = getp( cmd+1, &x );
+//      Serial.println( l );
+//      Serial.println( x );
+      if ( l >= 1 && x <= 90 )
+      {
+        if ( x == 0 )
+        { x = 90; y = 90; }
+        else
+        { 
+          x --;
+          y = I90[x*2+1];
+          x = I90[x*2];
+        }
+//        Serial.println( x );
+//        Serial.println( y );
+        if ( x >0 && x <= 180 &&
+             y >0 && y <= 180 )
+          goto loc_P;
+      }
+      break;
+    case 'i':
+      servoxy( 90, 90, DELAY_2CMD );
+      goto loc_I;
+    case 'f': // chess board 90 position offset.
+      break;
+  }
+}
+
+int iBufferPtr = 0;
+char cmdBuffer[80];
+void writeBuffer( char c )
+{
+  cmdBuffer[iBufferPtr] = c;
+  iBufferPtr ++;
+  cmdBuffer[iBufferPtr] = 0;
+
+  switch( cmdBuffer[iBufferPtr-1] )
+  {
+    case '\r':
+    case '\n':
+      cmdBuffer[iBufferPtr-1] = 0;
+//      Serial.println( cmdBuffer );
+      // compare 'm' string.
+      if ( cmdBuffer[0] == 'm' )
+        strcpy( cmdBuffer, cmdBuffer + 1 );
+      // do command.
+      command( cmdBuffer );
+      // clear command.
+      iBufferPtr = 0; 
+      cmdBuffer[0] = 0;
+  }     
+}
+
+void loop() 
+{ 
+  char inByte;
+  if (Serial.available()) {
+    inByte = Serial.read();
+    // recording the command.
+    writeBuffer( inByte );
+  }    
+} 
+
